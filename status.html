@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Status Check</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Base Colors */
+            --bg-dark: #121212;
+            --text-main: #ffffff;
+            --accent-yellow: #ffff55;
+            --accent-green: #55ff55;
+            --accent-red: #ff5555;
+            
+            /* GitHub Assets Base URL */
+            --url: 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.11/assets/minecraft/textures/block';
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background-color: var(--bg-dark);
+            background-image: 
+                linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)),
+                url('https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.11/assets/minecraft/textures/block/bedrock.png');
+            background-size: 128px;
+            image-rendering: pixelated;
+            font-family: 'VT323', monospace;
+            color: var(--text-main);
+            overflow: hidden; /* Hide scrollbars for floating elements */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            perspective: 1000px; /* Untuk efek 3D global */
+        }
+
+        /* === 1. BACKGROUND FLOATING BLOCKS (MORE 3D!) === */
+        .floating-world {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* Klik tembus ke belakang */
+            z-index: 0;
+        }
+
+        /* Generic 3D Cube CSS */
+        .cube-3d {
+            width: 64px; height: 64px;
+            position: absolute;
+            transform-style: preserve-3d;
+            animation: floatSpin 10s linear infinite;
+        }
+
+        .face {
+            position: absolute;
+            width: 64px; height: 64px;
+            background-size: cover;
+            border: 1px solid rgba(0,0,0,0.2);
+            image-rendering: pixelated;
+        }
+
+        /* Posisi Wajah Kubus */
+        .f-front  { transform: rotateY(0deg) translateZ(32px); }
+        .f-back   { transform: rotateY(180deg) translateZ(32px); }
+        .f-right  { transform: rotateY(90deg) translateZ(32px); }
+        .f-left   { transform: rotateY(-90deg) translateZ(32px); }
+        .f-top    { transform: rotateX(90deg) translateZ(32px); }
+        .f-bottom { transform: rotateX(-90deg) translateZ(32px); }
+
+        /* Animasi Melayang & Muter */
+        @keyframes floatSpin {
+            0% { transform: translateY(0) rotateX(0) rotateY(0); }
+            50% { transform: translateY(-20px) rotateX(180deg) rotateY(180deg); }
+            100% { transform: translateY(0) rotateX(360deg) rotateY(360deg); }
+        }
+
+        /* === 2. UI CARDS === */
+        .container {
+            display: flex;
+            gap: 50px;
+            z-index: 10;
+            padding: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .server-card {
+            background: rgba(0, 0, 0, 0.75);
+            width: 300px;
+            padding: 25px;
+            border: 4px solid #777;
+            /* Border 3D effect css */
+            box-shadow: 
+                inset 2px 2px 0 #fff,
+                inset -2px -2px 0 #333,
+                5px 5px 20px rgba(0,0,0,0.8);
+            text-align: center;
+            backdrop-filter: blur(4px);
+            transition: transform 0.3s;
+            position: relative;
+        }
+
+        .server-card:hover { transform: scale(1.05) translateZ(20px); }
+
+        /* === LOGO LOGIC STYLES === */
+        .server-icon {
+            width: 84px; height: 84px;
+            margin-bottom: 15px;
+            image-rendering: pixelated;
+            border: 2px solid #fff;
+            background: #000;
+            transition: all 0.3s ease;
+        }
+
+        /* STATE: Pinging (Flicker) */
+        .icon-pinging {
+            animation: flickerGray 1s infinite;
+        }
+
+        /* STATE: Offline (Grayscale) */
+        .icon-offline {
+            filter: grayscale(100%) brightness(0.6);
+            opacity: 0.8;
+            border-color: #555;
+        }
+
+        /* STATE: Online (Normal) */
+        .icon-online {
+            filter: none;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            border-color: var(--accent-green);
+        }
+
+        @keyframes flickerGray {
+            0% { filter: grayscale(100%); opacity: 0.5; }
+            50% { filter: grayscale(0%); opacity: 1; }
+            100% { filter: grayscale(100%); opacity: 0.5; }
+        }
+
+        /* Text Styles */
+        h2 { margin: 5px 0; font-size: 2rem; text-shadow: 2px 2px #000; }
+        .type-badge { background: #333; color: #aaa; padding: 2px 8px; border-radius: 4px; font-size: 1rem; text-transform: uppercase; }
+        
+        .ip-box {
+            background: rgba(0,0,0,0.5);
+            border: 2px dashed #555;
+            color: var(--accent-yellow);
+            padding: 8px;
+            margin: 10px 0;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: 0.2s;
+        }
+        .ip-box:hover { background: rgba(255, 255, 85, 0.2); border-color: var(--accent-yellow); }
+        .ip-box:active::after { content: " [COPIED]"; color: #fff; }
+
+        .status-text { font-size: 1.4rem; margin: 10px 0; }
+        .st-online { color: var(--accent-green); text-shadow: 0 0 5px var(--accent-green); }
+        .st-offline { color: var(--accent-red); }
+        .st-loading { color: var(--accent-yellow); }
+
+        /* Player Bar */
+        .player-wrap { margin-top: 15px; text-align: left; }
+        .player-nums { display: flex; justify-content: space-between; margin-bottom: 5px; color: #ddd; font-size: 1.1rem; }
+        .bar-bg { height: 16px; background: #222; border: 2px solid #000; position: relative; }
+        .bar-fill { height: 100%; background: #80ff00; width: 0%; transition: width 0.8s; box-shadow: inset 0 2px rgba(255,255,255,0.4); }
+
+        /* Button */
+        .refresh-btn {
+            margin-top: 40px;
+            background: #999;
+            background-image: url('https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.11/assets/minecraft/textures/block/stone.png');
+            background-size: 64px;
+            border: none;
+            padding: 15px 50px;
+            font-family: inherit;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #000;
+            box-shadow: inset 3px 3px #fff, inset -3px -3px #444, 4px 4px 10px #000;
+            z-index: 20;
+        }
+        .refresh-btn:active { transform: translate(3px, 3px); box-shadow: inset 3px 3px #444, inset -3px -3px #fff; }
+
+        /* Curtain Animation */
+        #curtain {
+            position: fixed; inset: 0; z-index: 999; pointer-events: none;
+            display: flex; animation: hideCurtain 0.1s forwards 2s;
+        }
+        .curtain-panel {
+            width: 50%; height: 100%;
+            background: url('https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.11/assets/minecraft/textures/block/stone_bricks.png');
+            background-size: 64px;
+            box-shadow: inset 0 0 40px #000;
+        }
+        .p-left { border-right: 2px solid #000; animation: openLeft 1.5s cubic-bezier(0.7,0,0.3,1) forwards 0.5s; }
+        .p-right { border-left: 2px solid #000; animation: openRight 1.5s cubic-bezier(0.7,0,0.3,1) forwards 0.5s; }
+
+        @keyframes openLeft { to { transform: translateX(-100%); } }
+        @keyframes openRight { to { transform: translateX(100%); } }
+        @keyframes hideCurtain { to { visibility: hidden; } }
+
+        /* Mobile Adjust */
+        @media(max-width: 600px) {
+            .container { flex-direction: column; align-items: center; }
+            .floating-world { opacity: 0.3; } /* Reduce distraction on mobile */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="curtain">
+        <div class="curtain-panel p-left"></div>
+        <div class="curtain-panel p-right"></div>
+    </div>
+
+    <div class="floating-world" id="bg-world"></div>
+
+    <div class="container">
+        <div class="server-card">
+            <img src="" class="server-icon icon-pinging" id="java-icon" alt="icon">
+            <span class="type-badge">Java Edition</span>
+            <h2>DG Java</h2>
+            <div class="ip-box" onclick="copyIp('instead-panels.gl.joinmc.link')">instead-panels.gl.joinmc.link</div>
+            
+            <div id="java-status" class="status-text st-loading">Pinging...</div>
+            
+            <div class="player-wrap">
+                <div class="player-nums">
+                    <span>Players</span>
+                    <span id="java-count">0 / 0</span>
+                </div>
+                <div class="bar-bg">
+                    <div class="bar-fill" id="java-bar"></div>
+                </div>
+            </div>
+            <div id="java-motd" style="color:#888; font-size:0.9rem; margin-top:10px; font-style:italic;">...</div>
+        </div>
+
+        <div class="server-card">
+            <img src="" class="server-icon icon-pinging" id="bedrock-icon" alt="icon">
+            <span class="type-badge">Bedrock Edition</span>
+            <h2>DG Bedrock</h2>
+            <div class="ip-box" onclick="copyIp('147.185.221.16:21648')">147.185.221.16:21648</div>
+            
+            <div id="bedrock-status" class="status-text st-loading">Pinging...</div>
+            
+            <div class="player-wrap">
+                <div class="player-nums">
+                    <span>Players</span>
+                    <span id="bedrock-count">0 / 0</span>
+                </div>
+                <div class="bar-bg">
+                    <div class="bar-fill" id="bedrock-bar"></div>
+                </div>
+            </div>
+            <div id="bedrock-motd" style="color:#888; font-size:0.9rem; margin-top:10px; font-style:italic;">...</div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="checkAll()">REFRESH SERVER</button>
+
+    <script>
+        // --- 1. CONFIGURATION ---
+        const SERVERS = {
+            java: { type: 'java', ip: 'instead-panels.gl.joinmc.link', iconId: 'java-icon', statusId: 'java-status', countId: 'java-count', barId: 'java-bar', motdId: 'java-motd' },
+            bedrock: { type: 'bedrock', ip: '147.185.221.16:21648', iconId: 'bedrock-icon', statusId: 'bedrock-status', countId: 'bedrock-count', barId: 'bedrock-bar', motdId: 'bedrock-motd' }
+        };
+        const DEFAULT_ICON = "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.11/assets/minecraft/textures/block/grass_block_side.png";
+        
+        // --- 2. GENERATE 3D BACKGROUND BLOCKS ---
+        const textures = [
+            { top: 'grass_block_top', side: 'grass_block_side', bottom: 'dirt' },
+            { top: 'oak_log_top', side: 'oak_log', bottom: 'oak_log_top' },
+            { top: 'diamond_ore', side: 'diamond_ore', bottom: 'diamond_ore' },
+            { top: 'tnt_top', side: 'tnt_side', bottom: 'tnt_bottom' },
+            { top: 'gold_block', side: 'gold_block', bottom: 'gold_block' }
+        ];
+
+        const world = document.getElementById('bg-world');
+        const BASE_URL = 'https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21.11/assets/minecraft/textures/block/';
+
+        function createCube(x, y, scale, speed, textureSet) {
+            const cube = document.createElement('div');
+            cube.className = 'cube-3d';
+            cube.style.left = x + '%';
+            cube.style.top = y + '%';
+            cube.style.transform = `scale(${scale})`;
+            cube.style.animationDuration = speed + 's';
+
+            const sides = [
+                { class: 'f-front', tex: textureSet.side },
+                { class: 'f-back', tex: textureSet.side },
+                { class: 'f-right', tex: textureSet.side },
+                { class: 'f-left', tex: textureSet.side },
+                { class: 'f-top', tex: textureSet.top },
+                { class: 'f-bottom', tex: textureSet.bottom },
+            ];
+
+            sides.forEach(s => {
+                const face = document.createElement('div');
+                face.className = 'face ' + s.class;
+                face.style.backgroundImage = `url('${BASE_URL}${s.tex}.png')`;
+                cube.appendChild(face);
+            });
+
+            world.appendChild(cube);
+        }
+
+        // Spawn 8 Random Cubes
+        for(let i=0; i<8; i++) {
+            const tex = textures[Math.floor(Math.random() * textures.length)];
+            const x = Math.random() * 90;
+            const y = Math.random() * 90;
+            const scale = 0.5 + Math.random(); // 0.5 to 1.5 size
+            const speed = 10 + Math.random() * 20; // 10s to 30s rotation
+            createCube(x, y, scale, speed, tex);
+        }
+
+        // --- 3. SERVER CHECK LOGIC ---
+        function copyIp(text) { navigator.clipboard.writeText(text); }
+
+        async function checkServer(key) {
+            const s = SERVERS[key];
+            const iconEl = document.getElementById(s.iconId);
+            const statusEl = document.getElementById(s.statusId);
+            const barEl = document.getElementById(s.barId);
+            
+            // 1. SET STATE: PINGING (Flicker Logic)
+            iconEl.className = 'server-icon icon-pinging'; // Add flicker class
+            iconEl.src = DEFAULT_ICON; // Temp icon
+            statusEl.className = 'status-text st-loading';
+            statusEl.innerText = "Pinging...";
+
+            try {
+                const res = await fetch(`https://api.mcstatus.io/v2/status/${s.type}/${s.ip}`);
+                const data = await res.json();
+
+                if (data.online) {
+                    // 2. SET STATE: ONLINE (Color)
+                    iconEl.className = 'server-icon icon-online';
+                    iconEl.src = data.icon ? data.icon : DEFAULT_ICON;
+                    
+                    statusEl.className = 'status-text st-online';
+                    statusEl.innerText = "ONLINE";
+
+                    document.getElementById(s.countId).innerText = `${data.players.online} / ${data.players.max}`;
+                    const pct = data.players.max > 0 ? (data.players.online / data.players.max) * 100 : 0;
+                    barEl.style.width = `${pct}%`;
+                    
+                    document.getElementById(s.motdId).innerText = data.motd.clean;
+                } else {
+                    throw new Error("Offline");
+                }
+            } catch (e) {
+                // 3. SET STATE: OFFLINE (Grayscale)
+                iconEl.className = 'server-icon icon-offline';
+                iconEl.src = DEFAULT_ICON;
+                
+                statusEl.className = 'status-text st-offline';
+                statusEl.innerText = "OFFLINE";
+                
+                document.getElementById(s.countId).innerText = "0 / 0";
+                barEl.style.width = "0%";
+                document.getElementById(s.motdId).innerText = "Server is currently unreachable.";
+            }
+        }
+
+        function checkAll() {
+            checkServer('java');
+            checkServer('bedrock');
+        }
+
+        // Init
+        window.onload = checkAll;
+
+    </script>
+</body>
+</html>
